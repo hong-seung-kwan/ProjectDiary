@@ -23,6 +23,7 @@ const Sidebar = () => {
             { name: "프로젝트 추가", path: "project-add" },
             { name: "일지 작성", path: "diary-write" },
             { name: "프로젝트 관리", path: "project-manage" },
+            { name: "일지 목록", path: "/diary-list"},
         ]
         : [
             { name: '홈', path: '/' },

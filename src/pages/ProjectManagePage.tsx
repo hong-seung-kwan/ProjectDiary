@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { collection, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import Modal from "../components/Modal";
+import { useNavigate } from "react-router-dom";
 
 interface Project {
   id: string;
@@ -18,6 +19,13 @@ const ProjectManagePage = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [editData, setEditData] = useState({ description: "", status: "" });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [projectCounts, setProjectCounts] = useState({
+    plan: 0,
+    ongoing: 0,
+    done: 0,
+  })
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -29,7 +37,16 @@ const ProjectManagePage = () => {
           id: doc.id,
           ...doc.data(),
         })) as Project[];
+
+        const counts = {plan: 0, ongoing: 0, done: 0};
+        projectList.forEach((p) => {
+          if (p.status === "계획중") counts.plan++;
+          else if (p.status === "진행중") counts.ongoing++;
+          else if (p.status === "완료") counts.done++;
+        });
+
         setProjects(projectList);
+        setProjectCounts(counts);
       } catch (error) {
         console.error("프로젝트 목록 불러오기 실패:", error);
       } finally {
@@ -89,6 +106,23 @@ const ProjectManagePage = () => {
     <div className="max-w-2xl mx-auto mt-10 bg-white p-6 rounded-xl shadow">
       <h2 className="text-2xl font-bold mb-4 text-center">내 프로젝트 목록</h2>
 
+      {/* 상태 카드 부분 */}
+      <div className="flex justify-between gap-3 mb-6">
+        <div className="flex-1 text-center bg-blue-50 p-4 rounded-lg mx-2">
+          <p className="text-gray-600">계획중</p>
+          <p className="text-2xl font-bold text-blue-600">{projectCounts.plan}</p>
+        </div>
+        <div className="flex-1 text-center bg-green-50 p-4 rounded-lg mx-2">
+          <p className="text-gray-600">진행중</p>
+          <p className="text-2xl font-bold text-green-600">{projectCounts.ongoing}</p>
+        </div>
+        <div className="flex-1 text-center bg-gray-100 p-4 rounded-lg mx-2">
+          <p className="text-gray-600">완료</p>
+          <p className="text-2xl font-bold text-gray-600">{projectCounts.done}</p>
+        </div>
+      </div>
+
+      {/* 프로젝트 카드 부분 */}
       {projects.length === 0 ? (
         <p className="text-center text-gray-500">등록된 프로젝트가 없습니다.</p>
       ) : (
@@ -103,7 +137,7 @@ const ProjectManagePage = () => {
                 <p className="text-sm text-gray-600">{p.description}</p>
                 <p className="text-xs text-gray-400 mt-1">{p.status}</p>
               </div>
-              <div className="flex flex-col items-end gap-2 text-sm">
+              <div className="flex items-center gap-3 text-sm">
                 <button
                   onClick={() => handleEditOpen(p)}
                   className="text-blue-500 hover:text-blue-700"
@@ -115,6 +149,12 @@ const ProjectManagePage = () => {
                   className="text-red-500 hover:text-red-700"
                 >
                   🗑 삭제
+                </button>
+                <button
+                  onClick={() => navigate(`/project/${p.id}`)}
+                  className="text-gray-500 hover:text-blue-500 text-xl font-bold"
+                >
+                  &gt;
                 </button>
               </div>
             </li>

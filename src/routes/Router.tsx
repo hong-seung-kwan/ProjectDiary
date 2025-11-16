@@ -6,6 +6,8 @@ import DiaryWritePage from '../pages/DiaryWritePage'
 import ProjectManagePage from '../pages/ProjectManagePage'
 import AuthPage from '../pages/AuthPage'
 import PrivateRoute from './PrivateRoute'
+import DiaryListPage from '../pages/DiaryListPage'
+import ProjectDetailPage from '../pages/ProjectDetailPage'
 
 const Router = () => {
   return (
@@ -17,7 +19,8 @@ const Router = () => {
       <Route path="/project-add" element={<PrivateRoute><ProjectAddPage /></PrivateRoute>} />
       <Route path="/diary-write" element={<PrivateRoute><DiaryWritePage /></PrivateRoute>} />
       <Route path="/project-manage" element={<PrivateRoute><ProjectManagePage /></PrivateRoute>} />
-      
+      <Route path="/diary-list" element={<PrivateRoute><DiaryListPage /></PrivateRoute>} />
+      <Route path="project/:projectId" element={<PrivateRoute><ProjectDetailPage/></PrivateRoute>} />
     </Routes>
 
   )
