@@ -236,12 +236,31 @@ const DiaryWritePage = () => {
             이전
           </button>
         )}
-        <button
-          onClick={handleSubmit}
-          className="ml-auto bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-        >
-          {isEditMode ? '수정 저장' : step < 4 ? '다음' : '저장'}
-        </button>
+        {isEditMode ? (
+          // 수정모드일 때는 바로 저장
+          <button
+            onClick={handleSubmit}
+            className="ml-auto bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          >
+            수정 저장
+          </button>
+        ) : step < 4 ? (
+          // 작성 중 다음 단계로 이동
+          <button
+            onClick={() => setStep(step + 1)}
+            className="ml-auto bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            다음
+          </button>
+        ) : (
+          // 마지막 단계에서는 저장
+          <button
+            onClick={handleSubmit}
+            className="ml-auto bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          >
+            저장
+          </button>
+        )}
       </div>
     </div>
   )

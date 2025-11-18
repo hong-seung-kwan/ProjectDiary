@@ -65,9 +65,19 @@ const ProjectDetailPage = () => {
         }));
         setDiaries(list);
 
-        // 오늘 작성한 일지가 있으면 수정페이지로
+        
         const today = new Date().toLocaleDateString();
-        if (location.state?.openToday && !selectedDiary) {
+        // 홈에서 일지를 클릭한 경우
+        if (location.state?.openDiaryId && !selectedDiary) {
+          const targetDiary = list.find((d) => d.id === location.state.openDiaryId);
+          if (targetDiary) {
+            setSelectedDiary(targetDiary);
+            navigate(location.pathname, { replace: true });
+          }
+        }
+
+        // 오늘 작성한 일지가 있으면 수정페이지로
+        else if (location.state?.openToday && !selectedDiary) {
           const todayDiary = list.find((d) => d.createdAt === today);
           if (todayDiary) {
             setEditingDiary(todayDiary);
@@ -78,8 +88,7 @@ const ProjectDetailPage = () => {
               solution: todayDiary.troubleshooting?.solution || "",
               retrospective: todayDiary.retrospective || "",
             });
-            // replace로 state 초기화 (무한 재실행 방지)
-            navigate(location.pathname, { replace: true });
+            navigate(location.pathname, { replace: true }); // 무한 실행 방지
           }
         }
 
