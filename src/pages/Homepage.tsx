@@ -53,6 +53,9 @@ const Homepage = () => {
     thisMonthTroubleCount: 0,
   })
   const [recentDiaries, setRecentDiaries] = useState<DiaryDetail[]>([]);
+  const [projects, setProjects] = useState<{id: string; name:string;}[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [filteredEvents, setFilteredEvents] = useState<CalendarEvent[]>([]);
 
   
   const generateSummaryMessage = () => {
@@ -91,9 +94,11 @@ const Homepage = () => {
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
+      const projectList: {id:string; name:string;}[] = [];
 
       for (const projectDoc of projectSnapshot.docs) {
         const projectName = projectDoc.data().name;
+        projectList.push({id: projectDoc.id, name: projectName})
         const diariesRef = collection(
           db,
           "users",
@@ -143,7 +148,7 @@ const Homepage = () => {
         thisMonthDiaryCount,
         thisMonthTroubleCount,
       });
-
+      setProjects(projectList);
       const sortedByDate = [...allEvents].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
@@ -163,6 +168,14 @@ const Homepage = () => {
 
     fetchAllDiaries();
   }, [user]);
+
+  useEffect(() => {
+    if (selectedProject === "all") {
+      setFilteredEvents(events);
+    } else{
+      setFilteredEvents(events.filter(ev => ev.projectId === selectedProject));
+    }
+  }, [selectedProject, events]);
 
   // 날짜 클릭 시 해당 날짜의 일지 목록 모달 표시
   const handleDateClick = (info: DateClickArg) => {
@@ -253,7 +266,7 @@ const Homepage = () => {
     }
   };
 
-  // 🗑 일지 삭제
+  // 일지 삭제
   const handleDelete = async () => {
     if (!user || !selectedDiary) return;
     if (!confirm("정말로 이 일지를 삭제하시겠습니까?")) return;
@@ -312,6 +325,21 @@ const Homepage = () => {
         </div>
       </div>
 
+      {/* 프로젝트 선택 드롭다운 부분 */}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">프로젝트별 보기</h2>
+        <select
+          value={selectedProject}
+          onChange={(e) => setSelectedProject(e.target.value)}
+          className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+        >
+          <option value="all">전체 보기</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
+
       {/* 캘린더 */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <FullCalendar
@@ -320,7 +348,7 @@ const Homepage = () => {
           locale="ko"
           height="auto"
           dateClick={handleDateClick}
-          events={events}
+          events={filteredEvents}
         />
       </div>
       {/* 최근 작성된 일지 */}
