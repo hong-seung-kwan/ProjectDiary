@@ -149,6 +149,7 @@ const Homepage = () => {
         thisMonthTroubleCount,
       });
       setProjects(projectList);
+      
       const sortedByDate = [...allEvents].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
