@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { collection, getDocs, orderBy, query, doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, doc, getDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import Modal from "../components/Modal";
 
@@ -17,6 +17,7 @@ interface Diary {
   troubleshooting?: Troubleshooting;
   retrospective?: string;
   createdAt: string;
+  tags?: string[];
 }
 
 const ProjectDetailPage = () => {
@@ -26,14 +27,6 @@ const ProjectDetailPage = () => {
   const [diaries, setDiaries] = useState<Diary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDiary, setSelectedDiary] = useState<Diary | null>(null);
-  const [editingDiary, setEditingDiary] = useState<Diary | null>(null);
-  const [editForm, setEditForm] = useState({
-    title: "",
-    progress: "",
-    problem: "",
-    solution: "",
-    retrospective: "",
-  })
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -59,14 +52,13 @@ const ProjectDetailPage = () => {
           progress: doc.data().progress || "",
           troubleshooting: doc.data().troubleshooting || { problem: "", solution: "" },
           retrospective: doc.data().retrospective || "",
+          tags: doc.data().tags || [],
           createdAt: doc.data().createdAt
             ? doc.data().createdAt.toDate().toLocaleDateString()
             : "",
         }));
         setDiaries(list);
 
-        
-        const today = new Date().toLocaleDateString();
         // 홈에서 일지를 클릭한 경우
         if (location.state?.openDiaryId && !selectedDiary) {
           const targetDiary = list.find((d) => d.id === location.state.openDiaryId);
@@ -75,23 +67,6 @@ const ProjectDetailPage = () => {
             navigate(location.pathname, { replace: true });
           }
         }
-
-        // 오늘 작성한 일지가 있으면 수정페이지로
-        else if (location.state?.openToday && !selectedDiary) {
-          const todayDiary = list.find((d) => d.createdAt === today);
-          if (todayDiary) {
-            setEditingDiary(todayDiary);
-            setEditForm({
-              title: todayDiary.title,
-              progress: todayDiary.progress,
-              problem: todayDiary.troubleshooting?.problem || "",
-              solution: todayDiary.troubleshooting?.solution || "",
-              retrospective: todayDiary.retrospective || "",
-            });
-            navigate(location.pathname, { replace: true }); // 무한 실행 방지
-          }
-        }
-
       } catch (error) {
         console.error("일지 불러오기 실패:", error);
       } finally {
@@ -103,56 +78,6 @@ const ProjectDetailPage = () => {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, projectId, location.state]);
-
-  // 일지 수정
-  const handleEditOpen = (diary: Diary) => {
-    setEditingDiary(diary);
-    setEditForm({
-      title: diary.title,
-      progress: diary.progress,
-      problem: diary.troubleshooting?.problem || "",
-      solution: diary.troubleshooting?.solution || "",
-      retrospective: diary.retrospective || "",
-    })
-  }
-
-  // 수정한 내용 저장
-  const handleEditSave = async () => {
-    if (!user || !projectId || !editingDiary) return;
-
-    // 1. Firestore 업데이트
-    const diaryRef = doc(db, "users", user.uid, "projects", projectId, "diaries", editingDiary.id);
-    const updatedDiary = {
-      title: editForm.title,
-      progress: editForm.progress,
-      troubleshooting: {
-        problem: editForm.problem,
-        solution: editForm.solution,
-      },
-      retrospective: editForm.retrospective,
-    };
-
-    try {
-      await updateDoc(diaryRef, updatedDiary);
-
-      // 2. 로컬 상태 즉시 반영
-      setDiaries((prev) =>
-        prev.map((d) =>
-          d.id === editingDiary.id ? { ...d, ...updatedDiary } : d
-        )
-      );
-
-      // 3. 편집 모달 닫기
-      setEditingDiary(null);
-
-
-      alert("일지가 수정되었습니다!");
-    } catch (error) {
-      console.error("일지 수정 실패:", error);
-      alert("수정 실패했습니다");
-    }
-  };
-
 
   // 일지 삭제
   const handleDeleteDiary = async (id: string) => {
@@ -182,22 +107,25 @@ const ProjectDetailPage = () => {
       const snapshot = await getDocs(diaryRef);
 
       const today = new Date().toLocaleDateString();
-      const todayDiary = snapshot.docs.find((doc) => {
+      const todayDiaryDoc = snapshot.docs.find((doc) => {
         const data = doc.data();
         if (!data.createdAt) return false;
         const createdAt = data.createdAt.toDate().toLocaleDateString();
         return createdAt === today;
       });
 
-      if (todayDiary) {
-        const confirmEdit = confirm("오늘 일지는 이미 작성되었습니다. \n수정 페이지로 이동하시겠습니까??")
-        if (confirmEdit) {
-          navigate(`/project/${projectId}`, {
-            state: { openToday: true },
-          })
-        }
-        return;
+      if (todayDiaryDoc) {
+      // 오늘 일지 이미 있으면 수정 페이지로 이동
+      const todayDiary = {
+        id: todayDiaryDoc.id,
+        ...todayDiaryDoc.data(),
+      };
+      const confirmEdit = confirm("오늘 일지는 이미 작성되었습니다.\n수정 페이지로 이동하시겠습니까?");
+      if (confirmEdit) {
+        navigate("/diary-write", { state: { editDiary: todayDiary, projectId, projectName } });
       }
+      return;
+    }
 
       // 없으면 작성 페이지로 이동
       navigate("/diary-write", { state: { projectId, projectName } });
@@ -259,7 +187,7 @@ const ProjectDetailPage = () => {
                       보기
                     </button>
                     <button
-                      onClick={() => handleEditOpen(diary)}
+                      onClick={() => navigate("/diary-write",{state: {editDiary:diary} })}
                       className="text-green-500 hover:text-green-700 text-sm"
                     >
                       수정
@@ -282,124 +210,80 @@ const ProjectDetailPage = () => {
       <Modal isOpen={!!selectedDiary} onClose={() => setSelectedDiary(null)}>
         {selectedDiary && (
           <div className="transition-all duration-300 ease-in-out">
-            <h3 className="text-xl font-bold mb-2">{selectedDiary.title}</h3>
-            <p className="text-sm text-gray-400 mb-4">{selectedDiary.createdAt}</p>
+            <h3 className="text-2xl font-bold mb-1">{selectedDiary.title}</h3>
+            <p className="text-sm text-gray-400 mb-5">{selectedDiary.createdAt}</p>
+
+            {selectedDiary.tags && selectedDiary.tags.length > 0 && (
+              <div>
+                {selectedDiary.tags.map((tag, i) => (
+                  <span
+                    key={i}
+                    className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {selectedDiary.progress && (
-              <>
-                <h4 className="font-semibold text-blue-600 mt-2 mb-1">오늘 진행 내용</h4>
-                <p className="whitespce-pre-wrap text-gray-700 mb-3">
+              <div className="bg-blue-50 border-l-4 border-blue-400 rounded-md p-4 mb-4">
+                <h4 className="font-semibold text-blue-700 flex items-center gap-2 mb-2">
+                  <span className="w-5 h-5 flex items-center justify-center rounded-full bg-blue-500 text-white text-xs font-bold">1</span>
+                  오늘 진행 내용
+                </h4>
+                <p className="text-gray-700 whitespace-pre-wrap">
                   {selectedDiary.progress}
                 </p>
-              </>
+              </div>
             )}
 
             {selectedDiary.troubleshooting &&
-              (selectedDiary.troubleshooting.problem || selectedDiary.troubleshooting.solution) && (
-                <>
-                  <h4 className="font-semibold text-orange-500 mt-2 mb-1">트러블슈팅</h4>
-
-                  {selectedDiary.troubleshooting.problem && (
-                    <>
-                      <p className="font-semibold text-gray-700 mt-2">문제 상황</p>
-                      <p className="whitespace-pre-wrap mb-2">
-                        {selectedDiary.troubleshooting.problem}
-                      </p>
-                    </>
+              (selectedDiary.troubleshooting?.problem || selectedDiary.troubleshooting?.solution) && (
+                <div className="bg-orange-50 border-l-4 border-orange-400 rounded-md p-4 mb-4">
+                  <h4 className="font-semibold text-orange-700 flex items-center gap-2 mb-2">
+                    <span className="w-5 h-5 flex items-center justify-center rounded-full bg-orange-500 text-white text-xs font-bold">2</span>
+                    트러블슈팅
+                  </h4>
+                  {selectedDiary.troubleshooting?.problem && (
+                    <p className="text-gray-700 whitespace-pre-wrap mb-2">
+                      <span className="font-semibold text-gray-800">문제 상황: </span>
+                      {selectedDiary.troubleshooting.problem}
+                    </p>
                   )}
-
-                  {selectedDiary.troubleshooting.solution && (
-                    <>
-                      <p className="font-semibold text-gray-700 mt-2">해결 과정</p>
-                      <p className="whitespace-pre-wrap mb-2">
-                        {selectedDiary.troubleshooting.solution}
-                      </p>
-                    </>
+                  {selectedDiary.troubleshooting?.solution && (
+                    <p className="text-gray-700 whitespace-pre-wrap">
+                      <span className="font-semibold text-gray-800">해결 과정: </span>
+                      {selectedDiary.troubleshooting.solution}
+                    </p>
                   )}
-                </>
+                </div>
               )}
 
-
-            {selectedDiary.retrospective && selectedDiary.retrospective.trim() !== "" && (
-              <>
-                <h4 className="font-semibold text-green-600 mt-2 mb-1">회고</h4>
-                <p className="whitespace-pre-wrap text-gray-700">
+            {/* 회고 */}
+            {selectedDiary.retrospective && (
+              <div className="bg-green-50 border-l-4 border-green-400 rounded-md p-4 mb-4">
+                <h4 className="font-semibold text-green-700 flex items-center gap-2 mb-2">
+                  <span className="w-5 h-5 flex items-center justify-center rounded-full bg-green-500 text-white text-xs font-bold">3</span>
+                  회고
+                </h4>
+                <p className="text-gray-700 whitespace-pre-wrap">
                   {selectedDiary.retrospective}
                 </p>
-              </>
+              </div>
             )}
 
-
-          </div>
-        )}
-      </Modal>
-
-      {/* 수정 모달 */}
-      <Modal isOpen={!!editingDiary} onClose={() => setEditingDiary(null)}>
-        {editingDiary && (
-          <div className="transition-all duration-300 ease-in-out">
-            <h3 className="text-xl font-bold mb-4">일지 수정</h3>
-
-            <h4 className="font-semibold mt-2 mb-1">제목</h4>
-            <input
-              type="text"
-              placeholder="제목"
-              value={editForm.title}
-              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-              className="w-full border rounded-md px-3 py-2 mb-3"
-            />
-
-            <h4 className="font-semibold text-blue-600 mt-2 mb-1">오늘 진행 내용</h4>
-            <textarea
-              placeholder="오늘 진행 내용"
-              value={editForm.progress}
-              onChange={(e) => setEditForm({ ...editForm, progress: e.target.value })}
-              className="w-full border rounded-md px-3 py-2 mb-3"
-            />
-
-            <h4 className="font-semibold text-orange-500 mt-2 mb-1">트러블슈팅</h4>
-
-            <h5 className="font-semibold text-orange-500 mt-2 mb-1">문제 상황</h5>
-            <textarea
-              placeholder="문제 상황"
-              value={editForm.problem}
-              onChange={(e) => setEditForm({ ...editForm, problem: e.target.value })}
-              className="w-full border rounded-md px-3 py-2 mb-3"
-            />
-
-            <h5 className="font-semibold text-orange-500 mt-2 mb-1">해결 과정</h5>
-            <textarea
-              placeholder="해결 과정"
-              value={editForm.solution}
-              onChange={(e) => setEditForm({ ...editForm, solution: e.target.value })}
-              className="w-full border rounded-md px-3 py-2 mb-3"
-            />
-
-            <h4 className="font-semibold text-green-500 mt-2 mb-1">회고</h4>
-            <textarea
-              placeholder="회고"
-              value={editForm.retrospective}
-              onChange={(e) => setEditForm({ ...editForm, retrospective: e.target.value })}
-              className="w-full border rounded-md px-3 py-2 mb-3"
-            />
-
-            <div className="flex justify-end space-x-3">
+            {/* 하단 버튼 */}
+            <div className="flex justify-end mt-6">
               <button
-                onClick={() => setEditingDiary(null)}
-                className="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300"
+                onClick={() => setSelectedDiary(null)}
+                className="bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700 transition"
               >
-                취소
-              </button>
-              <button
-                onClick={handleEditSave}
-                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-              >
-                저장
+                닫기
               </button>
             </div>
           </div>
         )}
-
       </Modal>
     </div>
   );
