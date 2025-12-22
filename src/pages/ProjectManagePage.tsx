@@ -5,6 +5,7 @@ import { db } from "../firebase/firebase";
 import Modal from "../components/Modal";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, Pencil, Search, Trash2, X } from "lucide-react";
+import Toast from "../components/Toast";
 
 interface Project {
   id: string;
@@ -34,6 +35,14 @@ const ProjectManagePage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState("recent");
   const [showSearch, setShowSearch] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" | "" }>({
+    message: "",
+    type: "",
+  });
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ message, type });
+  };
 
   // 프로젝트 불러오기
   useEffect(() => {
@@ -47,7 +56,7 @@ const ProjectManagePage = () => {
         snapshot.docs.map(async (docSnap) => {
           const projectId = docSnap.id;
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const {id,...projectData} = docSnap.data() as Project;
+          const { id, ...projectData } = docSnap.data() as Project;
 
           // diaries 개수 실시간 반영
           const diariesRef = collection(db, "users", user.uid, "projects", projectId, "diaries");
@@ -116,7 +125,7 @@ const ProjectManagePage = () => {
     try {
       await deleteDoc(doc(db, "users", user.uid, "projects", id));
       setProjects((prev) => prev.filter((p) => p.id !== id));
-      alert("프로젝트가 삭제되었습니다.");
+      showToast("프로젝트가 삭제되었습니다.","success");
     } catch (error) {
       console.error("프로젝트 삭제 실패:", error);
     }
@@ -148,7 +157,7 @@ const ProjectManagePage = () => {
         )
       );
       setIsModalOpen(false);
-      alert("프로젝트가 수정되었습니다!");
+      showToast("프로젝트가 수정되었습니다!","success");
     } catch (error) {
       console.error("수정 실패:", error);
     }
@@ -351,6 +360,14 @@ const ProjectManagePage = () => {
           </button>
         </div>
       </Modal>
+      {/* Toast 알림 */}
+      {toast.message && (
+        <Toast
+          message={toast.message}
+          type={toast.type as "success" | "error" | "info"}
+          onClose={() => setToast({ message: "", type: "" })}
+        />
+      )}
     </div>
   );
 };

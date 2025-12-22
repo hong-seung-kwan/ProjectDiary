@@ -70,13 +70,23 @@ const DiaryWritePage = () => {
           name: doc.data().name || "제목없음",
         }));
         setProjects(projectList);
+
+        if (isEditMode && editDiary?.projectId){
+          const targetProject = 
+            projectList.find((p) => p.id === editDiary.projectId) ||
+            projectList.find((p) => p.name === editDiary.projectId);
+
+            if (targetProject) {
+              setSelectProject(targetProject.id);
+            }
+        }
       } catch (error) {
         console.log("프로젝트 목록 불러오기 실패:", error);
       }
     };
 
     fetchProjects();
-  }, [user])
+  }, [user, isEditMode, editDiary])
 
   // 일지 추가
   const handleSubmit = async () => {

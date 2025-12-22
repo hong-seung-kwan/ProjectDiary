@@ -115,17 +115,17 @@ const ProjectDetailPage = () => {
       });
 
       if (todayDiaryDoc) {
-      // 오늘 일지 이미 있으면 수정 페이지로 이동
-      const todayDiary = {
-        id: todayDiaryDoc.id,
-        ...todayDiaryDoc.data(),
-      };
-      const confirmEdit = confirm("오늘 일지는 이미 작성되었습니다.\n수정 페이지로 이동하시겠습니까?");
-      if (confirmEdit) {
-        navigate("/diary-write", { state: { editDiary: todayDiary, projectId, projectName } });
+        // 오늘 일지 이미 있으면 수정 페이지로 이동
+        const todayDiary = {
+          id: todayDiaryDoc.id,
+          ...todayDiaryDoc.data(),
+        };
+        const confirmEdit = confirm("오늘 일지는 이미 작성되었습니다.\n수정 페이지로 이동하시겠습니까?");
+        if (confirmEdit) {
+          navigate("/diary-write", { state: { editDiary: todayDiary, projectId, projectName } });
+        }
+        return;
       }
-      return;
-    }
 
       // 없으면 작성 페이지로 이동
       navigate("/diary-write", { state: { projectId, projectName } });
@@ -187,7 +187,13 @@ const ProjectDetailPage = () => {
                       보기
                     </button>
                     <button
-                      onClick={() => navigate("/diary-write",{state: {editDiary:diary} })}
+                      onClick={() => navigate("/diary-write", {
+                        state: {
+                          editDiary: diary,
+                          projectId,
+                          projectName,
+                        }
+                      })}
                       className="text-green-500 hover:text-green-700 text-sm"
                     >
                       수정

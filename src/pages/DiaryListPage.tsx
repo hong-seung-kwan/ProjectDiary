@@ -4,6 +4,7 @@ import { collection, deleteDoc, doc, getDocs, orderBy, query } from 'firebase/fi
 import { db } from '../firebase/firebase';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Edit, Trash2 } from 'lucide-react';
+import Toast from '../components/Toast';
 
 interface Project {
     id: string;
@@ -31,6 +32,13 @@ const DiaryListPage = () => {
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" | "" }>({
+        message: "",
+        type: "",
+    })
+    const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+        setToast({ message, type });
+    }
 
 
     useEffect(() => {
@@ -144,13 +152,14 @@ const DiaryListPage = () => {
     };
 
     const handleDelete = async (projectId: string, diaryId: string) => {
-        if(!user) return;
+        if (!user) return;
         const confirmDelete = window.confirm("정말 이 일지를 삭제하시겠습니까??");
         if (!confirmDelete) return;
 
         try {
             await deleteDoc(doc(db, "users", user.uid, "projects", projectId, "diaries", diaryId));
             setDiaries((prev) => prev.filter((d) => d.id !== diaryId));
+            showToast("일지가 삭제되었습니다!","success");
         } catch (error) {
             console.log("삭제 실패", error);
             alert("일지를 삭제하는 중 오류가 발생했습니다.");
@@ -300,23 +309,23 @@ const DiaryListPage = () => {
                                         </button>
 
                                         <div className='flex gap-2'>
-                                        <button
-                                            onClick={() =>
-                                                navigate("/diary-write", {
-                                                    state: { editDiary: d },
-                                                })
-                                            }
-                                            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
-                                        >
-                                            <Edit size={14} /> 수정
-                                        </button>
+                                            <button
+                                                onClick={() =>
+                                                    navigate("/diary-write", {
+                                                        state: { editDiary: d },
+                                                    })
+                                                }
+                                                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                                            >
+                                                <Edit size={14} /> 수정
+                                            </button>
 
-                                        <button
-                                            onClick={() => handleDelete(d.projectId, d.id)}
-                                            className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
-                                        >
-                                            <Trash2 size={14} /> 삭제
-                                        </button>
+                                            <button
+                                                onClick={() => handleDelete(d.projectId, d.id)}
+                                                className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
+                                            >
+                                                <Trash2 size={14} /> 삭제
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -324,6 +333,14 @@ const DiaryListPage = () => {
                         </div>
                     ))}
                 </div>
+            )}
+            {/* Toast 알림 */}
+            {toast.message && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type as "success" | "error" | "info"}
+                    onClose={() => setToast({ message: "", type: "" })}
+                />
             )}
         </div>
     );
