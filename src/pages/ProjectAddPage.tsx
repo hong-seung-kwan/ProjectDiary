@@ -11,6 +11,7 @@ import {
 import { db } from "../firebase/firebase";
 import { FolderPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Toast from "../components/Toast";
 
 interface Project {
   id: string;
@@ -24,9 +25,14 @@ const ProjectAddPage = () => {
   const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("계획중");
-  const [message, setMessage] = useState("");
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
-  
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" | "" }>({
+    message: "",
+    type: "",
+  })
+  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ message, type });
+  }
   const navigate = useNavigate();
 
   // 프로젝트 등록
@@ -46,11 +52,11 @@ const ProjectAddPage = () => {
         createdAt: serverTimestamp(),
       });
 
-      alert("프로젝트가 성공적으로 추가되었습니다!")
-      navigate("/project-manage");
+      showToast("프로젝트가 성공적으로 추가되었습니다!","success");
+      setTimeout(() => navigate("/project-manage"), 1000);
     } catch (error) {
       console.error("프로젝트 추가 실패:", error);
-      setMessage("❌ 에러가 발생했습니다.");
+      showToast("❌ 에러가 발생했습니다.","error");
     }
   };
 
@@ -152,12 +158,6 @@ const ProjectAddPage = () => {
           </div>
         </form>
 
-
-        {message && (
-          <p className="text-center mt-4 text-blue-600 font-medium">
-            {message}
-          </p>
-        )}
       </div>
 
       {/* 최근 등록 프로젝트 리스트 */}
@@ -186,6 +186,14 @@ const ProjectAddPage = () => {
           </ul>
         )}
       </div>
+      {/* Toast 알림 */}
+      {toast.message && (
+        <Toast
+          message={toast.message}
+          type={toast.type as "success" | "error" | "info"}
+          onClose={() => setToast({ message: "", type: "" })}
+        />
+      )}
     </div>
   );
 };
