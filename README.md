@@ -6,7 +6,7 @@
 ---
 
 ## 🔗 배포 주소
-- 
+- https://projectdiary-1ef71.web.app/
 
 
 ---

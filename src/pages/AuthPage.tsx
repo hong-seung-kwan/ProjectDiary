@@ -82,6 +82,21 @@ const AuthPage = () => {
     }
   };
 
+  const handleDemoLogin = async () => {
+    try {
+      await signInWithEmailAndPassword(
+        auth,
+        "user@gmail.com",
+        "123456"
+      );
+      showToast("테스트 계정으로 로그인되었습니다.", "success");
+      navigate("/")
+    } catch(error) {
+      console.error(error);
+      showToast("테스트 로그인에 실패하였습니다.", "error");
+    }
+  }
+
   return (
     <div className="flex items-center justify-center h-screen">
       <div className="bg-white p-10 rounded-2xl shadow-md w-[55vh] h-[55vh] flex flex-col justify-center">
@@ -123,6 +138,21 @@ const AuthPage = () => {
           >
             {isLogin ? "로그인" : "회원가입"}
           </button>
+          {isLogin && (
+            <button
+            type='button'
+            onClick={handleDemoLogin}
+            className='w-full mt-3 bg-gray-100 text-gray-700 py-2 rounded-md hover:bg-gray-200 transition'
+            >
+              👀 체험하기 (테스트 계정)
+            </button>
+          )}
+
+          {isLogin && (
+            <p className='text-xs text-gray-400 text-center'>
+              회원가입 없이 주요 기능을 바로 체험할 수 있습니다.
+            </p>
+          )}
         </form>
 
         <p
