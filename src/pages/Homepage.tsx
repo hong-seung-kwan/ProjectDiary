@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import FullCalendar from "@fullcalendar/react";
+import { lazy, Suspense, useEffect, useState } from "react";
+const FullCalendar = lazy(() => import("@fullcalendar/react"));
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { EventClickArg } from "@fullcalendar/core";
@@ -58,6 +58,7 @@ const Homepage = () => {
   const [recentDiaries, setRecentDiaries] = useState<DiaryDetail[]>([]);
   const navigate = useNavigate();
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [calendarReady, setCalendarReady] = useState(false);
 
   // 요약 문구 생성
   const generateSummaryMessage = () => {
@@ -83,41 +84,58 @@ const Homepage = () => {
     setToast({ message, type });
   };
 
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      setCalendarReady(true);
+    })
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   // Firestore에서 모든 프로젝트 + 일지 불러오기
   useEffect(() => {
-    if (!user) return;
+    if (!user || !calendarReady) return;
 
     const fetchAllDiaries = async () => {
       const userRef = collection(db, "users", user.uid, "projects");
       const projectSnapshot = await getDocs(userRef);
-      const allEvents: CalendarEvent[] = [];
 
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      const projectList = projectSnapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+      }));
+
+      // 병렬로 모든 다이어리 데이터 가져오기
+      const diarySnapshots = await Promise.all(
+        projectSnapshot.docs.map(async (projectDoc) => {
+          const diariesRef = collection(
+            db,
+            "users",
+            user.uid,
+            "projects",
+            projectDoc.id,
+            "diaries"
+          );
+          const q = query(diariesRef, orderBy("createdAt", "desc"));
+          const diariesSnapshot = await getDocs(q);
+          return {
+            projectId: projectDoc.id,
+            projectName: projectDoc.data().name,
+            diariesSnapshot,
+          };
+        })
+      );
+
+      const allEvents: CalendarEvent[] = [];
       let diaryCount = 0;
       let troubleshootingCount = 0;
       let thisMonthDiaryCount = 0;
       let thisMonthTroubleCount = 0;
 
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-      const projectList: { id: string; name: string }[] = [];
-
-      for (const projectDoc of projectSnapshot.docs) {
-        const projectName = projectDoc.data().name;
-        projectList.push({ id: projectDoc.id, name: projectName });
-
-        const diariesRef = collection(
-          db,
-          "users",
-          user.uid,
-          "projects",
-          projectDoc.id,
-          "diaries"
-        );
-        const q = query(diariesRef, orderBy("createdAt", "desc"));
-        const diariesSnapshot = await getDocs(q);
-
+      diarySnapshots.forEach(({ projectId, projectName, diariesSnapshot }) => {
         diariesSnapshot.forEach((d) => {
           const data = d.data();
           if (data.createdAt) {
@@ -142,14 +160,14 @@ const Homepage = () => {
               color: "#3b82f6",
               extendedProps: {
                 projectName,
-                projectId: projectDoc.id,
+                projectId,
               },
             });
           }
         });
-      }
+      });
 
-      setEvents(allEvents);
+      // 상태 업데이트
       setStats({
         diaryCount,
         troubleshootingCount,
@@ -158,12 +176,13 @@ const Homepage = () => {
         thisMonthTroubleCount,
       });
       setProjects(projectList);
+      setEvents(allEvents);
 
-      // 최근 일지 3개
-      const sortedByDate = [...allEvents].sort(
+      // 최근 일지 3개 정렬
+      const sortedByDate = allEvents.sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       );
-      const top3 = sortedByDate.slice(0, 3).map((ev) => ({
+      const top3 = sortedByDate.slice(0, 3).map(ev => ({
         id: ev.id,
         title: ev.title,
         createdAt: ev.date,
@@ -176,8 +195,9 @@ const Homepage = () => {
       setRecentDiaries(top3);
     };
 
+
     fetchAllDiaries();
-  }, [user]);
+  }, [user, calendarReady]);
 
   // 프로젝트 필터링
   useEffect(() => {
@@ -251,7 +271,7 @@ const Homepage = () => {
       );
       await deleteDoc(diaryRef);
 
-      showToast("일지가 삭제되었습니다!","success");
+      showToast("일지가 삭제되었습니다!", "success");
       setSelectedDiary(null);
       setConfirmModalOpen(false);
       setEvents((prev) => prev.filter((ev) => ev.id !== selectedDiary.id));
@@ -318,15 +338,30 @@ const Homepage = () => {
 
       {/* 캘린더 */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <FullCalendar
-          plugins={[dayGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          locale="ko"
-          height="auto"
-          eventClick={handleEventClick}
-          events={filteredEvents}
-        />
+        {calendarReady ? (
+          <Suspense
+            fallback={
+              <div className="flex justify-center items-center h-64 text-blue-500 font-medium animate-pulse">
+                📅 캘린더 불러오는 중입니다...
+              </div>
+            }
+          >
+            <FullCalendar
+              plugins={[dayGridPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              locale="ko"
+              height={500}
+              eventClick={handleEventClick}
+              events={filteredEvents}
+            />
+          </Suspense>
+        ) : (
+          <div className="flex justify-center items-center h-40 text-gray-400">
+            📅 캘린더 로딩 준비 중...
+          </div>
+        )}
       </div>
+
 
       {/* 최근 일지 */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
